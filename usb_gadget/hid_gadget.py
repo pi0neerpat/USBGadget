@@ -153,9 +153,18 @@ class MouseGadget(HIDGadget):
         if self.auto_update:
             self.update()
 
-
 class KeyboardScanCode:
     __SYMBOLS = {'-': 0x2D, '=': 0x2E, '[': 0x2F, ']': 0x30, '\\': 0x31, ';': 0x33, '\'': 0x34, '`': 0x35, ',': 0x36, '.': 0x37, '/': 0x38}
+    __SHIFT_SYMBOLS = {'?':0x38,    "{": 0x2f,
+    '}': 0x30,
+    "|": 0x31,
+    ":": 0x33,
+    '"': 0x34,
+    "<": 0x36,
+    ">": 0x37,
+    "?": 0x38,
+    }
+
     NULL = 0x00
     ERR_ROLLOVER = 0x01
     ERR_POSTFAIL = 0x02
@@ -205,13 +214,24 @@ class KeyboardScanCode:
     def is_modifier(cls, key: Union[str, int]):
         if isinstance(key, str):
             key = KeyboardScanCode[key]
+        if isinstance(key, list):
+            return False
         return cls.Modifiers.CONTROL_LEFT <= key <= cls.Modifiers.GUI_RIGHT
-
+    
+    @classmethod
+    def is_shift_needed(cls, key: Union[str, int, list]):
+        if isinstance(key, list):
+            return True
+        return False
+        
     def __class_getitem__(cls, item: str):
         if len(item) == 1:
             # A-Z
             if 'a' <= item.lower() <= 'z':
-                return 0x04 + (ord(item.lower()) - ord('a'))
+                value = 0x04 + (ord(item.lower()) - ord('a'))
+                if item.isupper():
+                    return [cls.Modifiers.SHIFT_LEFT,value]
+                return value
             # 1-9
             if '1' <= item <= '9':
                 return 0x1E + (ord(item) - ord('1'))
@@ -221,6 +241,8 @@ class KeyboardScanCode:
             # SPACE
             if item == ' ':
                 return cls.SPACEBAR
+            if item in cls.__SHIFT_SYMBOLS:
+                return [cls.Modifiers.SHIFT_LEFT,cls.__SHIFT_SYMBOLS[item]]
             # Special symbols
             if item in cls.__SYMBOLS:
                 return cls.__SYMBOLS[item]
@@ -258,18 +280,30 @@ class KeyboardGadget(HIDGadget):
             key = KeyboardScanCode[key]
         if key is None:
             raise ValueError('Unknown key')
-        if KeyboardScanCode.is_modifier(key):
+        
+        if isinstance(key, list):
+            # For shifted characters, add modifier to modifier_keys and character to keys
+            self.modifier_keys.append(key[0])
+            self.keys.append(key[1])
+        elif KeyboardScanCode.is_modifier(key):
             self.modifier_keys.append(key)
         else:
             self.keys.append(key)
+            
         if self.auto_update:
             self.update()
 
+
     def release(self, key: Union[str, int]):
+        
         if isinstance(key, str):
             key = KeyboardScanCode[key]
         if key is None:
             raise ValueError('Unknown key')
+        if isinstance(key, list):
+            if key[0] in self.modifier_keys:
+                self.modifier_keys.remove(key[0])
+            self.keys.remove(key[1])
         if KeyboardScanCode.is_modifier(key):
             if key in self.modifier_keys:
                 self.modifier_keys.remove(key)
