@@ -217,13 +217,7 @@ class KeyboardScanCode:
         if isinstance(key, list):
             return False
         return cls.Modifiers.CONTROL_LEFT <= key <= cls.Modifiers.GUI_RIGHT
-    
-    @classmethod
-    def is_shift_needed(cls, key: Union[str, int, list]):
-        if isinstance(key, list):
-            return True
-        return False
-        
+
     def __class_getitem__(cls, item: str):
         if len(item) == 1:
             # A-Z
